@@ -63,6 +63,18 @@ BLOCKED_SHORTS     = [c for c in os.environ.get("BLOCKED_SHORTS", "").split(",")
 # Regimes this engine refuses to trade in. Local classifier in engine/regime.py.
 # Labels: trend_up, trend_down, range, chop
 BLOCKED_REGIMES    = [r for r in os.environ.get("BLOCKED_REGIMES", "").split(",") if r]
+
+# Session filter — only trade during whitelisted UTC hours.
+# Empty = no filter (always trade). Example: "7,8,9,10,11,12,13,14,15" = London window.
+SESSION_HOURS      = sorted(set(int(h) for h in os.environ.get("SESSION_HOURS", "").split(",")
+                                if h.strip() and h.strip().lstrip("-").isdigit()))
+
+# Volatility gate — ATR-relative-to-price filters.
+# Skip if ATR%price falls outside [ATR_PCT_MIN, ATR_PCT_MAX].
+# Default range "0.001,0.05" excludes near-zero-vol AND extreme-vol coins.
+# Empty / unset = no gate.
+ATR_PCT_MIN = float(os.environ.get("ATR_PCT_MIN", "0") or "0")
+ATR_PCT_MAX = float(os.environ.get("ATR_PCT_MAX", "0") or "0")  # 0 = no max
 ACTIVE_UNIVERSE    = [c for c in (PRIMARY_UNIVERSE + SECONDARY_UNIVERSE)
                       if c and c not in BLOCKED_UNIVERSE]
 
