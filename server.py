@@ -266,6 +266,12 @@ class Handler(BaseHTTPRequestHandler):
                 _json(self, 200, {"status": "ok", "ts": int(time.time() * 1000),
                                    "halted": HALT_STATE.get("active", False),
                                    "mode_effective": trader._effective_mode()})
+            elif u.path == "/whale":
+                from engine import whale_tracker as _wt
+                _json(self, 200, _wt.get_state())
+            elif u.path == "/whale/scan":
+                from engine import whale_tracker as _wt
+                _json(self, 200, _wt.scan_once())
             elif u.path == "/state":
                 _json(self, 200, {
                     "halt": HALT_STATE,
