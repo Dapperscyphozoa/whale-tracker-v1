@@ -27,7 +27,7 @@ from .config import (
     TRADE_PARAMS, MAKER_ONLY_MODE, MAKER_TP_ENABLED, HL_BUILDER_CODE, BUILDER_KICKBACK_BPS,
     NET_DEDUP_MODE, NET_DEDUP_THRESHOLD_USD,
     MACRO_CONFLUENCE_MODE, MACRO_DISAGREE_THRESHOLD,
-    ENSEMBLE_VOTING_MODE, ENSEMBLE_WINDOW_MIN,
+    ENSEMBLE_VOTING_MODE, ENSEMBLE_WINDOW_MIN, BOOK_AMPLIFIER_MODE,
     MACRO_CONFLUENCE_ENABLED, MACRO_BTC_COINS, MACRO_MIN_CONFLUENCE,
     ENSEMBLE_CONFLUENCE_ENABLED, ENSEMBLE_WINDOW_MIN,
     L2_IMBALANCE_ENABLED, L2_IMBALANCE_RANGE_PCT, L2_IMBALANCE_BLOCK_THRESHOLD,
@@ -243,6 +243,30 @@ def attempt_trade(coin: str, signal: dict) -> dict:
         except Exception as e:
             print(f"[ensemble] check failed: {e}", flush=True)
 
+    # ---------- orderbook imbalance amplifier ----------
+    # L2 book skew on top 10 price levels. Multiplies size if book agrees
+    # with trade direction, scales down if it disagrees.
+    if BOOK_AMPLIFIER_MODE != "off":
+        try:
+            book = pm_client.fetch_book_imbalance(coin)
+            if book:
+                verdict = book.get("verdict", "balanced")
+                direction = "long" if is_long else "short"
+                book_mult = 1.0
+                if verdict == "bid_heavy":
+                    book_mult = 1.2 if direction == "long" else 0.7
+                elif verdict == "ask_heavy":
+                    book_mult = 1.2 if direction == "short" else 0.7
+                if BOOK_AMPLIFIER_MODE == "skip_against" and book_mult < 0.8:
+                    return {"status": "skipped",
+                             "reason": f"book_against[{coin}:{direction}:{verdict}]"}
+                cell_size_mult = (cell_size_mult or 1.0) * book_mult
+                if book_mult != 1.0:
+                    print(f"[book] {coin}:{verdict} → {direction} x{book_mult}",
+                          flush=True)
+        except Exception as e:
+            print(f"[book] check failed: {e}", flush=True)
+
     # ---------- L2 orderbook imbalance ----------
     # Bid/ask depth within range_pct of mid. Lean matching trade direction
     # = book agrees with the signal. Hard block on strong disagreement.
@@ -333,6 +357,30 @@ def attempt_trade(coin: str, signal: dict) -> dict:
                           f"→ {ens_mult}x", flush=True)
         except Exception as e:
             print(f"[ensemble] check failed: {e}", flush=True)
+
+    # ---------- orderbook imbalance amplifier ----------
+    # L2 book skew on top 10 price levels. Multiplies size if book agrees
+    # with trade direction, scales down if it disagrees.
+    if BOOK_AMPLIFIER_MODE != "off":
+        try:
+            book = pm_client.fetch_book_imbalance(coin)
+            if book:
+                verdict = book.get("verdict", "balanced")
+                direction = "long" if is_long else "short"
+                book_mult = 1.0
+                if verdict == "bid_heavy":
+                    book_mult = 1.2 if direction == "long" else 0.7
+                elif verdict == "ask_heavy":
+                    book_mult = 1.2 if direction == "short" else 0.7
+                if BOOK_AMPLIFIER_MODE == "skip_against" and book_mult < 0.8:
+                    return {"status": "skipped",
+                             "reason": f"book_against[{coin}:{direction}:{verdict}]"}
+                cell_size_mult = (cell_size_mult or 1.0) * book_mult
+                if book_mult != 1.0:
+                    print(f"[book] {coin}:{verdict} → {direction} x{book_mult}",
+                          flush=True)
+        except Exception as e:
+            print(f"[book] check failed: {e}", flush=True)
     # NB: ACTIVE_UNIVERSE check removed — scan loop already filters via
     # _get_active_universe() (dynamic full HL universe minus blacklist + BLOCKED).
     # The static config ACTIVE_UNIVERSE is now stale when USE_FULL_UNIVERSE=1.

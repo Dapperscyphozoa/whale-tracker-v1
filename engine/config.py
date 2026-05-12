@@ -126,6 +126,11 @@ MACRO_DISAGREE_THRESHOLD = float(os.environ.get("MACRO_DISAGREE_THRESHOLD", "0.7
 # When N engines agree on same coin/direction in last window, boost size.
 ENSEMBLE_VOTING_MODE   = os.environ.get("ENSEMBLE_VOTING_MODE", "off")  # off | apply
 ENSEMBLE_WINDOW_MIN    = int(os.environ.get("ENSEMBLE_WINDOW_MIN", "60"))
+# Orderbook depth amplifier — scale cell_size_mult by L2 book/direction alignment
+#   off            — no check
+#   apply          — multiply by 0.7-1.2x depending on book direction
+#   skip_against   — hard-skip if book strongly opposes direction
+BOOK_AMPLIFIER_MODE    = os.environ.get("BOOK_AMPLIFIER_MODE", "off")
 
 # Macro confluence (walk-forward exposed missing macro context)
 # When enabled, trader queries PM /macro_state and scales cell_size_mult by

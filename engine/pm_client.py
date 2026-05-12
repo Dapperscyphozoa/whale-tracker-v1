@@ -99,6 +99,15 @@ def fetch_macro_state() -> Optional[dict]:
     return r
 
 
+def fetch_book_imbalance(coin: str, levels: int = 10) -> Optional[dict]:
+    """L2 book imbalance from PM. Returns verdict bid_heavy/ask_heavy/balanced
+    plus depth_ratio and imbalance_pct. None on unreachable."""
+    r = _request("GET", f"/book/{coin}?levels={levels}")
+    if not r or r.get("_unreachable") or r.get("_http_error"):
+        return None
+    return r
+
+
 def fetch_confluence(coin: str, direction: str, window_min: int = 60) -> Optional[dict]:
     """Cross-engine ensemble voting.
 
