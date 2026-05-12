@@ -185,6 +185,23 @@ def attempt_trade(coin: str, signal: dict) -> dict:
     except Exception as e:
         print(f"[cell] gate error: {e}", flush=True)
 
+    # ---------- volatility regime overlay ----------
+    # Quiet vol → size up. Noisy vol → size down. Optional BLOCKED_VOL_REGIMES env
+    # can flat-out skip trades in disagreeing vol regimes.
+    try:
+        from . import hl_data as _hd_v
+        from .config import STRATEGY_PARAMS as _sp_v
+        _tf_v = _sp_v.get("timeframe", "1h")
+        _vdf = _hd_v.fetch_candles(coin, _tf_v, n_bars=200)
+        vol_label = regime_module.classify_vol_regime(_vdf) if _vdf is not None else None
+        if regime_module.is_vol_blocked(vol_label):
+            return {"status": "skipped",
+                     "reason": f"blocked_vol_regime[{vol_label}]"}
+        vol_mult = regime_module.compute_vol_size_modifier(vol_label)
+        cell_size_mult = (cell_size_mult or 1.0) * vol_mult
+    except Exception as e:
+        print(f"[vol_regime] check failed: {e}", flush=True)
+
     # ---------- cross-engine portfolio netting ----------
     if NET_DEDUP_MODE != "off":
         try:
