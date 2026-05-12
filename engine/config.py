@@ -139,6 +139,14 @@ MACRO_MIN_CONFLUENCE = float(os.environ.get("MACRO_MIN_CONFLUENCE", "0.0"))
 # Cross-engine ensemble confluence — scale size when multiple engines agree
 ENSEMBLE_CONFLUENCE_ENABLED = os.environ.get("ENSEMBLE_CONFLUENCE_ENABLED", "0") == "1"
 ENSEMBLE_WINDOW_MIN = int(os.environ.get("ENSEMBLE_WINDOW_MIN", "60"))
+
+# L2 orderbook imbalance as confluence amplifier
+# When set, trader fetches L2 before entering and applies a size modifier:
+#   strong agreement (book lean matches trade direction): boost size
+#   strong disagreement (book lean opposed): reduce size or skip
+L2_IMBALANCE_ENABLED = os.environ.get("L2_IMBALANCE_ENABLED", "0") == "1"
+L2_IMBALANCE_RANGE_PCT = float(os.environ.get("L2_IMBALANCE_RANGE_PCT", "0.005"))
+L2_IMBALANCE_BLOCK_THRESHOLD = float(os.environ.get("L2_IMBALANCE_BLOCK_THRESHOLD", "-0.5"))
 MAKER_TP_ENABLED      = os.environ.get("MAKER_TP_ENABLED", "0") == "1"
 # HL builder code — if set, all orders route through this builder and we
 # collect 25-30% of taker fees as kickback (separate from maker rebate).

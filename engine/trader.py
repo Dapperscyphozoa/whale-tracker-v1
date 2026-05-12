@@ -30,6 +30,7 @@ from .config import (
     ENSEMBLE_VOTING_MODE, ENSEMBLE_WINDOW_MIN,
     MACRO_CONFLUENCE_ENABLED, MACRO_BTC_COINS, MACRO_MIN_CONFLUENCE,
     ENSEMBLE_CONFLUENCE_ENABLED, ENSEMBLE_WINDOW_MIN,
+    L2_IMBALANCE_ENABLED, L2_IMBALANCE_RANGE_PCT, L2_IMBALANCE_BLOCK_THRESHOLD,
     HL_WALLET, HL_PRIVATE_KEY,
     LIVE_MIN_ACCOUNT_VALUE, LIVE_SIZE_SCALE, LIVE_EXIT_SLIPPAGE, LIVE_MAKER_ONLY_ENTRIES,
 )
@@ -241,6 +242,31 @@ def attempt_trade(coin: str, signal: dict) -> dict:
                       f"(also: {','.join(others[:3])})", flush=True)
         except Exception as e:
             print(f"[ensemble] check failed: {e}", flush=True)
+
+    # ---------- L2 orderbook imbalance ----------
+    # Bid/ask depth within range_pct of mid. Lean matching trade direction
+    # = book agrees with the signal. Hard block on strong disagreement.
+    if L2_IMBALANCE_ENABLED:
+        try:
+            from . import hl_data as _hd_l2
+            book = _hd_l2.fetch_l2_book(coin)
+            imb = _hd_l2.compute_book_imbalance(book, L2_IMBALANCE_RANGE_PCT) if book else None
+            if imb is not None:
+                # For long: positive imbalance = bullish; for short: negative = bearish
+                aligned_imb = imb if is_long else -imb
+                if aligned_imb < L2_IMBALANCE_BLOCK_THRESHOLD:
+                    return {"status": "skipped",
+                             "reason": f"l2_imbalance_opposed[{aligned_imb:.2f}]"}
+                # Mild boost / reduction
+                if aligned_imb > 0.3:    l2_mult = 1.25
+                elif aligned_imb > 0.1:  l2_mult = 1.10
+                elif aligned_imb < -0.3: l2_mult = 0.65
+                elif aligned_imb < -0.1: l2_mult = 0.85
+                else:                     l2_mult = 1.00
+                cell_size_mult = (cell_size_mult or 1.0) * l2_mult
+                print(f"[l2] {coin}:{'L' if is_long else 'S'} imb={imb:+.2f} aligned={aligned_imb:+.2f} mult={l2_mult}", flush=True)
+        except Exception as e:
+            print(f"[l2] check failed: {e}", flush=True)
 
     # ---------- cross-engine portfolio netting ----------
     if NET_DEDUP_MODE != "off":
