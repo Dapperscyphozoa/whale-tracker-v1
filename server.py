@@ -44,21 +44,21 @@ def _origin_for_request(handler) -> str:
 
 # ===== Background workers =====
 def scan_loop():
-    """Every SCAN_INTERVAL_SEC: pull candles for each coin, detect signals, attempt trades."""
-    print(f"[scan] loop starting (interval={SCAN_INTERVAL_SEC}s, universe={ACTIVE_UNIVERSE})", flush=True)
-
-    # Initial cold sleep — let HL be ready, PM be ready
+    """Whale tracker polling loop — monitor known HL addresses for new positions."""
+    from engine import whale_engine as we
+    print(f"[whale] tracker loop starting", flush=True)
     time.sleep(15)
-
+    interval = int(os.environ.get("WHALE_POLL_INTERVAL_SEC", "180"))
+    we._load_state()
     while True:
         try:
             if HALT_STATE.get("active"):
-                print(f"[scan] HALT active ({HALT_STATE.get('reason')}) — skipping scan", flush=True)
+                print(f"[whale] HALT active — skipping", flush=True)
             else:
-                _scan_once()
+                we.tick()
         except Exception as e:
-            print(f"[scan] loop error: {e}\n{traceback.format_exc()}", flush=True)
-        time.sleep(SCAN_INTERVAL_SEC)
+            print(f"[whale] tick error: {e}\n{traceback.format_exc()}", flush=True)
+        time.sleep(interval)
 
 
 def _scan_once():
@@ -256,6 +256,12 @@ class Handler(BaseHTTPRequestHandler):
                                   "/closures", "/pnl", "/halt", "/scan", "/universe",
                                   "/live/status", "/live/events", "/live/pending"],
                 })
+            elif u.path == "/whales":
+                from engine import whale_engine as _we
+                _json(self, 200, _we.get_state())
+            elif u.path == "/whales/scan":
+                from engine import whale_engine as _we
+                _json(self, 200, {"alerts": _we.scan_whales()})
             elif u.path == "/health":
                 _json(self, 200, {"status": "ok", "ts": int(time.time() * 1000),
                                    "halted": HALT_STATE.get("active", False),
